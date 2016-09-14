@@ -695,25 +695,26 @@ module.exports = function(User) {
           return { id: u.id, email: u.email };
         });
       }
-
-      UserModel.observe('after save', function afterEmailUpdate(ctx, next) {
-        var AccessToken = ctx.Model.relations.accessTokens.modelTo;
-        var  newEmail = (ctx.instance || ctx.data).email;
-        if (!ctx.hookState.originalUserData) return next();
-        var idsToExpire = ctx.hookState.originalUserData.filter(function(u) {
-          return u.email !== newEmail;
-        }).map(function(u) {
-          return u.id;
-        });
-        if (!idsToExpire.length) return next();
-        AccessToken.deleteAll({ userId: { inq: idsToExpire }}, function(err, info) {
-          if (err) return next(err);
-        });
-        next();
-      });
-
       next();
     });
+    UserModel.observe('after save', function afterEmailUpdate(ctx, next) {
+      if (!ctx.Model.relations.accessTokens) return next();
+      var AccessToken = ctx.Model.relations.accessTokens.modelTo;
+      var  newEmail = (ctx.instance || ctx.data).email;
+      if (!ctx.hookState.originalUserData) return next();
+      var idsToExpire = ctx.hookState.originalUserData.filter(function(u) {
+        return u.email !== newEmail;
+      }).map(function(u) {
+        return u.id;
+      });
+      if (!idsToExpire.length) return next();
+      AccessToken.deleteAll({ userId: { inq: idsToExpire }}, function(err, info) {
+        if (err) return next(err);
+        next();
+      });
+    });
+
+
 
     UserModel.remoteMethod(
       'login',
